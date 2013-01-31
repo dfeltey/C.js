@@ -1,0 +1,587 @@
+
+// Lexical Elements
+
+token 
+	= keyword
+	/ identifier
+	/ constant
+	/ string_literal
+//	/ punctuator
+// punctuator doesn't seem necessary using a PEG
+
+
+// Skipping preprocessing tokens for now
+
+// Keywords
+
+keyword
+	= ws ("auto" / "break" / "case" / "char" / "const" / "continue" / "default"
+	/ "double" / "do" / "else" / "enum" / "extern" / "float" / "for" / "goto"
+	/ "if" / "inline" / "int" / "long" / "register" / "restrict" / "return"
+	/ "short" / "signed" / "sizeof" / "static" / "struct" / "switch" 
+	/ "typedef" / "union" / "unsigned" / "void" / "volatile" / "while" 
+	/ "_Bool" / "_Complex" / "_Imaginary") ws
+
+// Identifiers
+
+identifier
+	= !(keyword) ih:identifier_nondigit it:(identifier_nondigit / digit)* {return {tag: "identifier", name: ih.concat(it.join(""))};}
+
+identifier_nondigit
+	= nd: nondigit {return nd;}
+	/ ucn:universal_character_name {return ucn;} // how do I deal with the universal character names?
+
+nondigit
+	= [_a-zA-Z]
+
+digit
+	= [0-9]
+
+// Universal character names
+
+
+// need to figure out how these work, deal with unicode in javascript
+universal_character_name
+	= h:"\\u" t:hex_quad {return h+t;}
+	/ e:"\\U" h1:hex_quad h2:hex_quad {return e+h1+h2;}// No idea if this works, node isn't handling these the same as the 4 digit esc seqs
+
+hex_quad
+	= d1:hexadecimal_digit d2:hexadecimal_digit d3:hexadecimal_digit d4:hexadecimal_digit {return d1+d2+d3+d4;}
+
+// Constants
+
+constant
+	= f:floating_constant {return {tag: "constant", type: "float", val: f};}
+	/ i:integer_constant  {return {tag:"constant", type: "int", val: i};}
+	/ e:enumeration_constant {return {tag: "constant", type: "enum", val: e};}
+	/ c:character_constant  {return {tag: "constant", type: "char", val: c};}
+
+integer_constant
+	= d:decimal_constant s:integer_suffix? {return {tag: "int_const", type: "decimal", val: parseInt(d,10), suffix: s };}
+	/ o:octal_constant s:integer_suffix? {return {tag: "int_const", type: "octal", val: parseInt(o,8), suffix: s };}
+	/ h:hexadecimal_constant s:integer_suffix? {return {tag: "int_const", type: "hex", val: parseInt(h,16), suffix: s };}
+
+decimal_constant
+	= h:nonzero_digit t:digit* {return h.concat(t.join(""));}
+
+octal_constant
+	= h:"0" t:octal_digit* {return h.concat(t.join(""));}
+
+hexadecimal_constant
+	= h:hexadecimal_prefix t:hexadecimal_digit+ {return h.concat(t.join(""));}
+
+// shouldn't need to pass these up as a match should just send the string on...
+hexadecimal_prefix
+	= "0x"
+	/ "0X"
+
+nonzero_digit
+	= [1-9]
+
+octal_digit
+	= [0-7]
+
+hexadecimal_digit
+	= [0-9a-fA-F]
+
+integer_suffix
+	= ("ull" / "uLL" / "Ull" / "ULL" / "llu" / "llU" / "LLu" / "LLU") {return "ull";}
+	/ ("ul" / "uL" / "Ul" / "UL" / "lu" / "lU" / "Lu" / "LU") {return "ul";}
+	/ ("ll" / "LL") { return "ll";}
+	/ ("u" / "U") {return "u";}
+	/ ("l" / "L") {return "l";}
+
+floating_constant
+	= df:decimal_floating_constant {return {tag: "float_const", type: "decimal", val: df.val suffix: df.suffix};}
+	/ hf:hexadecimal_floating_constant {return {tag: "float_const", type: "hex", val: hf.val, suffix: hf.suffix};}
+
+decimal_floating_constant
+	= fc:fractional_constant ep:exponent_part? s:floating_suffix? {return {val: parseFloat(fc+ep) , suffix: s};}
+	/ ds:digit_sequence ep:exponent_part s:floating_suffix? {return {val: parseFloat(ds+ep) , suffix: s};}
+
+
+// need to figure out how to deal with hexadecimal floats in javascript 
+// parseFloat only works on decimal floats
+hexadecimal_floating_constant
+	= hp:hexadecimal_prefix hfc:hexadecimal_fractional_caonstant bep:binary_exponent_part s:floating_suffix? 
+	/ hp:hexadecimal_prefix hds:hexadecimal_digit_sequence bep:binary_exponent_part s:floating_suffix? 
+
+fractional_constant
+	= ds1:digit_sequence? d:"." ds2:digit_sequence {return ds1+d+ds2;}
+	/ ds:digit_sequence d:"." {return ds+d;}
+
+exponent_part
+	= e:"e" s:sign? ds:digit_sequence {return e+s+ds;}
+	/ e:"E" s:sign? ds:digit_sequence {return e+s+ds;}
+
+sign 
+	= "+"
+	/ "-"
+
+digit_sequence
+	= ds:digit+ {return ds.join("");}
+
+hexadecimal_fractional_caonstant
+	= hexadecimal_digit_sequence? "." hexadecimal_digit_sequence
+	/ hexadecimal_digit_sequence "."
+
+binary_exponent_part
+	= "p" sign? digit_sequence
+	/ "P" sign? digit_sequence
+
+hexadecimal_digit_sequence
+	= hexadecimal_digit+
+
+floating_suffix
+	= "f" {return "f";}
+	/ "F" {return "f";}
+	/ "l" {return "l";}
+	/ "L" {return "l";}
+
+enumeration_constant
+	= id:identifier {return id;}
+
+character_constant
+	= "L\'" ccs:c_char_sequence "\'" {return {tag: "wide_char_const", val: ccs };}
+	/ "\'" ccs:c_char_sequence "\'" {return {tag: "int_char_const", val: ccs};}
+
+c_char_sequence
+	= cs:c_char+ {return cs.join("");}
+
+c_char
+	= !("\\" / "\n" / "\'") c:. {return c;}
+	/ es:escape_sequence {return es;}
+
+escape_sequence
+	= ses:simple_escape_sequence {return ses;}
+	/ oes:octal_escape_sequence {return oes;}
+	/ hes:hexadecimal_escape_sequence {return hes;}
+	/ ues:universal_character_name {return ues;}
+
+simple_escape_sequence
+	= "\\\'"
+	/ "\\\""
+	/ "\\?"
+	/ "\\\\"
+	/ "\\a"
+	/ "\\b"
+	/ "\\f"
+	/ "\\n"
+	/ "\\r"
+	/ "\\t"
+	/ "\\v"
+
+octal_escape_sequence
+	= s:"\\" o1:octal_digit o2:octal_digit o3:octal_digit {return s+o1+o2+o3;}
+	/ s:"\\" o1:octal_digit o2:octal_digit {return s+o1+o2;}
+	/ s:"\\" o1:octal_digit {return s+o1;} 
+
+hexadecimal_escape_sequence
+	= p:"\\x" hds:hexadecimal_digit+ {return p+hds.join("");}
+
+string_literal
+	= "L\"" scs:s_char_sequence? "\"" {return {tag: "wide_string_literal", val: scs};}
+	/ "\"" scs:s_char_sequence? "\"" {return {tag: "string_literal", val: scs };}
+
+s_char_sequence
+	= scs:s_char+ {return scs.join("");} 
+
+s_char
+	= !("\"" / "\\" / "\n") sc:. {return sc;}
+	/ es:escape_sequence {return es;}
+
+
+
+
+// Expressions
+
+primary_expression
+	= id:identifier {return {tag: "primary_expression", type: "identifier", val: id };}
+	/ c:constant {return {tag: "primary_expression", type: "constant", val: c};}
+	/ s:string_literal {return {tag: "primary_expression", type: "string_literal", val:s};}
+	/ ws "(" ws expr:expression ws ")" ws {return {tag: "primary_expression", type: "expr", val:expr};}
+
+
+
+postfix_expression
+	= primary_expression postfix_expr_tail
+	/ ws "(" ws type_name ws ")" ws "{" ws initializer_list ws "}" ws postfix_expr_tail
+	/ ws "(" ws type_name ws ")" ws "{" ws initializer_list ws "," ws "}" ws postfix_expr_tail
+
+postfix_expr_tail
+	= ws "[" ws expression ws "]" ws postfix_expr_tail
+	/ ws "(" ws argument_expression_list? ws ")" ws postfix_expr_tail
+	/ ws "." ws identifier postfix_expr_tail
+	/ ws "->" ws identifier postfix_expr_tail
+	/ ws "++" ws postfix_expr_tail
+	/ ws "--" ws postfix_expr_tail
+	/ ws
+
+
+
+
+argument_expression_list
+	= assignment_expression
+	/ argument_expression_list ws "," ws assignment_expression
+
+unary_expression
+	= postfix_expression
+	/ ws "++" ws unary_expression
+	/ ws "--" ws unary_expression
+	/ unary_operator cast_expression
+	/ ws "sizeof" ws unary_expression
+	/ ws "sizeof" ws "(" ws type_name ws ")" ws 
+
+unary_operator
+	= ws "&" ws
+	/ ws "*" ws
+	/ ws "+" ws 
+	/ ws "-" ws 
+	/ ws "~" ws 
+	/ ws "!" ws 
+
+cast_expression
+	= unary_expression
+	/ ws "(" ws type_name ws ")" ws cast_expression
+
+multiplicative_expression
+	= cast_expression
+	/ multiplicative_expression ws "*" ws cast_expression
+	/ multiplicative_expression ws "/" ws cast_expression
+	/ multiplicative_expression ws "%" ws cast_expression
+
+additive_expression
+	= multiplicative_expression
+	/ additive_expression ws "+" ws multiplicative_expression
+	/ additive_expression ws "-" ws multiplicative_expression
+
+shift_expression
+	= additive_expression	
+	/ shift_expression ws "<<" ws additive_expression	
+	/ shift_expression ws ">>" ws additive_expression
+
+relational_expression
+	= shift_expression
+	/ relational_expression ws "<=" ws shift_expression
+	/ relational_expression ws ">=" ws shift_expression
+	/ relational_expression	ws "<" ws shift_expression
+	/ relational_expression ws ">" ws shift_expression
+
+equality_expression
+	= relational_expression
+	/ equality_expression ws "==" ws relational_expression
+	/ equality_expression ws "!=" ws relational_expression
+
+AND_expression
+	= equality_expression
+	/ AND_expression ws "&" ws equality_expression
+
+exclusive_OR_expression
+	= AND_expression
+	/ exclusive_OR_expression ws "^" ws AND_expression
+
+inclusive_OR_expression
+	= exclusive_OR_expression
+	/ inclusive_OR_expression ws "|" ws exclusive_OR_expression
+
+logical_AND_expression
+	= inclusive_OR_expression
+	/ logical_AND_expression ws "&&" ws inclusive_OR_expression
+
+logical_OR_expression
+	= logical_AND_expression
+	/ logical_OR_expression ws "||" ws logical_AND_expression
+
+conditional_expression
+	= logical_OR_expression
+	/ logical_OR_expression ws "?" ws expression ws ":" ws conditional_expression
+
+assignment_expression
+	= conditional_expression
+	/ unary_expression assignment_operator assignment_expression
+
+assignment_operator
+	= ws "=" ws 
+	/ ws "*=" ws 
+	/ ws "/=" ws 
+	/ ws "%=" ws 
+	/ ws "+=" ws 
+	/ ws "-=" ws 
+	/ ws "<<=" ws 
+	/ ws ">>=" ws 
+	/ ws "&=" ws 
+	/ ws "^=" ws 
+	/ ws "|=" ws
+
+expression
+	= assignment_expression
+	/ expression ws "," ws assignment_expression
+
+constant_expression
+	= conditional_expression
+
+// Declarations
+
+
+declaration
+	= declaration_specifiers init_declarator_list? ws ";" ws 
+
+declaration_specifiers	
+	= storage_class_specifier declaration_specifiers?
+	/ type_specifier declaration_specifiers?
+	/ type_qualifier declaration_specifiers?
+	/ function_specifier declaration_specifiers?
+
+init_declarator_list
+	= init_declarator
+	/ init_declarator_list ws "," ws init_declarator
+
+init_declarator
+	= declarator ws "=" ws initializer
+	/ declarator
+
+storage_class_specifier
+	= ws "typedef" ws 
+	/ ws "extern" ws 
+	/ ws "static" ws 
+	/ ws "auto" ws 
+	/ ws "register" ws
+
+
+// Don't know if I need ws annotations around the enum struct union etc stuff...?
+
+type_specifier
+	= ws "void" ws
+	/ ws "char" ws
+	/ ws "int" ws 
+	/ ws "long" ws 
+	/ ws "float" ws 
+	/ ws "double" ws
+	/ ws "signed" ws
+	/ ws "unsigned" ws
+	/ ws "_Bool" ws
+	/ ws "_Complex" ws
+	/ struct_or_union_specifier
+	/ enum_specifier
+	/ typedef_name
+
+struct_or_union_specifier
+	= struct_or_union identifier? ws "{" ws struct_declaration_list ws "}" ws 
+	/ struct_or_union identifier
+
+struct_or_union
+	= ws "struct" ws
+	/ ws "union" ws
+
+struct_declaration_list
+	= struct_declaration
+	/ struct_declaration_list struct_declaration
+
+struct_declaration
+	= specifier_qualifier_list struct_declarator_list ws ";" ws
+
+specifier_qualifier_list
+	= type_specifier specifier_qualifier_list?
+	/ type_qualifier specifier_qualifier_list?
+
+struct_declarator_list
+	= struct_declarator
+	/ struct_declarator_list ws "," ws struct_declarator
+
+struct_declarator
+	= declarator? ws ":" ws constant_expression
+	/ declarator
+
+enum_specifier
+	= ws "enum" ws identifier? ws "{" ws enumerator_list ws "," ws "}" ws
+	/ ws "enum" ws identifier? ws "{" ws enumerator_list ws "}" ws
+	/ ws "enum" ws identifier
+
+enumerator_list
+	= enumerator
+	/ enumerator_list ws "," ws enumerator
+
+enumerator
+	= enumeration_constant ws "=" ws constant_expression
+	/ enumeration_constant
+
+type_qualifier
+	= ws "const" ws
+	/ ws "restrict" ws 
+	/ ws "volatile" ws 
+
+function_specifier
+	= ws "inline" ws
+
+declarator
+	= pointer? direct_declarator
+
+
+direct_declarator
+	= identifier
+	/ ws "(" ws declarator ws ")" ws
+	/ direct_declarator ws "[" ws type_qualifier_list? assignment_expression? ws "]" ws 
+	/ direct_declarator ws "[" ws "static" ws type_qualifier_list? assignment_expression ws "]" ws 
+	/ direct_declarator ws "[" ws type_qualifier_list ws "static" ws assignment_expression ws "]" ws 
+	/ direct_declarator ws "[" ws type_qualifier_list? ws "*" ws "]" ws 
+	/ direct_declarator ws "(" ws parameter_type_list ws ")" ws 
+	/ direct_declarator ws "(" ws identifier_list? ws ")" ws 
+
+pointer
+	= ws "*" ws type_qualifier_list? pointer
+	/ ws "*" ws type_qualifier_list?
+
+type_qualifier_list
+	= type_qualifier
+	/ type_qualifier_list type_qualifier
+
+parameter_type_list
+	= parameter_list ws "," ws "..." ws 
+	/ parameter_list
+
+parameter_list
+	= parameter_declaration
+	/ parameter_list ws "," ws parameter_declaration
+
+parameter_declaration
+	= declaration_specifiers declarator
+	/ declaration_specifiers abstract_declarator?
+
+identifier_list
+	= identifier
+	/ identifier_list ws "," ws identifier
+
+type_name
+	= specifier_qualifier_list abstract_declarator?
+
+abstract_declarator
+	= pointer? direct_abstract_declarator
+	/ pointer
+
+direct_abstract_declarator
+	= ws "(" ws abstract_declarator ws ")" ws 
+	/ direct_abstract_declarator? ws "[" ws assignment_expression? ws "]" ws 
+	/ direct_abstract_declarator? ws "[" ws "*" ws "]" ws 
+	/ direct_abstract_declarator? ws "(" ws parameter_type_list? ws ")" ws 
+
+typedef_name
+	= identifier
+
+initializer
+	= assignment_expression
+	/ ws "{" ws initializer_list ws "," ws "}" ws 
+	/ ws "{" ws initializer_list ws "}" ws 
+
+initializer_list
+	= designation? initializer
+	/ initializer_list ws "," ws designation? initializer
+
+designation
+	= designator_list ws "=" ws 
+
+designator_list
+	= designator
+	/ designator_list designator
+
+designator
+	= ws "[" ws constant_expression ws "]" ws 
+	/ ws "." ws identifier
+
+// Statements
+
+statement
+	= labeled_statement
+	/ compound_statement
+	/ expression_statement
+	/ selection_statement
+	/ iteration_statement
+	/ jump_statement
+
+labeled_statement
+	= identifier ws ":" ws statement
+	/ ws "case" ws constant_expression ws ":" ws statement
+	/ ws "default" ws ":" ws statement
+
+compound_statement 
+	= ws "{" ws block_item_list? ws "}" ws 
+
+block_item_list
+	= block_item
+	/ block_item_list block_item
+
+block_item
+	= declaration
+	/ statement
+
+expression_statement
+	= expression? ws ";" ws 
+
+selection_statement
+	= ws "if" ws "(" ws expression ws ")" ws statement ws "else" ws statement
+	/ ws "if" ws "(" ws expression ws ")" ws statement
+	/ ws "switch" ws "(" ws expression ws ")" ws statement
+
+iteration_statement
+	= ws "while" ws "(" ws expression ws ")" ws statement
+	/ ws "do" ws statement ws "while" ws "(" ws expression ws ")" ws ";" ws
+	/ ws "for" ws "(" ws expression? ws ";" ws expression? ws ";" ws expression? ws ")" ws statement
+	/ ws "for" ws "(" ws declaration expression? ws ";" ws expression? ws ";" ws expression? ws ")" ws statement
+
+jump_statement
+	= ws "goto" ws identifier ws ";" ws
+	/ ws "continue" ws ";" ws 
+	/ ws "break" ws ";" ws 
+	/ ws "return" ws expression? ws ";" ws 
+
+// External Definitions
+
+translation_unit
+	= external_declaration
+	/ translation_unit external_declaration
+
+external_declaration
+	= function_definition
+	/ declaration
+
+function_definition
+	= declaration_specifiers declarator declaration_list? compound_statement
+
+declaration_list
+	= declaration
+	/ declaration_list declaration
+
+
+
+
+ws
+	= whitespace?
+
+whitespace
+	= [ \t\n\r]+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
