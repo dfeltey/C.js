@@ -46,6 +46,7 @@
 						<li><p class="fragment"> A C Compiler implemented in JavaScript.</p></li>
 						<li><p class="fragment"> A tool for teaching programming in C.</p></li>
 						<li><p class="fragment"> A challenging problem in programming language and compiler design.</p></li>
+						<li><p class="fragment"> A future research project.</p></li>						
 						<li><p class="fragment"><em>ABSOLUTELY INSANE!</em></p></li>
 					</ul>
 					
@@ -54,7 +55,7 @@
 					<section>
 						<h2>Why?</h2>
 						<ul>
-							<li><p class="fragment"> I teach programming to highschool students.</p></li>
+							<li><p class="fragment"> I teach programming to high school students.</p></li>
 							<li><p class="fragment"> There are no tools for learning C interactively.</p></li>
 							<li><p class="fragment"> Platform/Compiler/IDE/etc.. issues are frustrating.</p></li>
 							<li><p class="fragment"> I like compilers and programming languages.</p></li>
@@ -66,6 +67,8 @@
 							<li><p class="fragment"> C.js is a response to Codecademy and tryruby.org.</p></li>
 							<li><p class="fragment"> Maybe a place to go after finishing Codecademy.</p></li>
 							<li><p class="fragment"> A place to learn C online interactively.</p></li>
+						    <li><p class="fragment"> A platform for collaboration?</p></li>
+
 						</ul>
 					</section>
 				</section>
@@ -99,6 +102,13 @@ int x = 5;
 int *x = 5;
 						</code></pre>
 					</section>
+					<section>
+						<h2> And this</h2>
+						<pre><code class="C">
+char hello[6] = "hello";
+hello[6] = "bye";
+						</code></pre>
+					</section>
 				</section>
 				<section>
 					<section>
@@ -121,11 +131,86 @@ int (*t)[5];
 						</code></pre>
 					</section>
 					<section>
-						<h3> Here's a harder one</h3>
+						<h3> Or this one?</h3>
 						<pre><code class="C">
-int *t[5]; // fill in later
+int (*t)();
 						</code></pre>
 					</section>
+					<section>
+						<h3> Here's a harder one</h3>
+						<pre><code class="C">
+int (*(*vtable)[])(); 
+						</code></pre>
+						<p>From the <a href="http://www.antlr.org/wiki/display/CS652/How+To+Read+C+Declarations">ANTLR</a> wiki.</p>
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2>Implementing C in JavaScript</h2>
+					</section>
+					<section>
+						<h2> The Tools</h2>
+						<ul>
+							<li class="fragment"><p>PEG.js</p></li>
+							<li class="fragment"><p>Functional Programming</p></li>
+							<li class="fragment"><p>Continuations <text class="fragment">???</text></p></li>
+							<li class="fragment"><p>My own lexer/parser generator framework <text class="fragment">???</text></p></li>
+
+						</ul>
+					</section>
+					<section>
+						<h2> PEG.js </h2>
+						<ul>
+							<li class="fragment"><p>PEG.js is easy to use</p></li>
+							<li class="fragment"><p>The C99 grammar in the spec adapts easily to a PEG</p></li>
+							<li class="fragment"><p>Reasonably efficient</p></li>
+							<li class="fragment"><p>No need to pre-lex input before parsing.</p></li>
+
+						</ul>
+					</section>
+					<section>
+						<h2> What's wrong with PEG.js</h2>
+						<h6 class="fragment"> In my opinion</h4>
+						<ul>
+							<li class="fragment"><p>I sort of want pre-lexed input</p></li>
+							<li class="fragment"><p>Rule order matters</p></li>
+							<li class="fragment"><p>Dealing with whitespace is a pain</p></li>
+							<li class="fragment"><p>Context sensitivity may be challenging?</p></li>
+						</ul>
+					</section>
+					<section>
+						<h2> Implementing Languages in JavaScript</h2>
+						<ul>
+							<li class="fragment">The Good:<ul>
+								<li class="fragment">JavaScript is sort of functional</li>
+								<li class="fragment">Its imperative parts resemble C </li>
+								<li class="fragment"><a href="http://www.altjs.org/">Tons</a> of languages implemented in JS</li>
+							</ul></li>
+							<li class="fragment">The Bad:<ul>
+								<li class="fragment">C and JS are <em>very</em> different languages</li>
+								<li class="fragment">JS lacks some functionality to handle all of C easily</li>
+								<li class="fragment"></li>
+							</ul></li>
+						</ul>
+					</section>
+				</section>
+				<section>
+					<section>
+						<h2> Can we do better?</h2>
+						<small class="fragment"> <p>Most of what follows is theoretical, and not yet implemented.</p>
+											 <p>Code samples will probably not compile or run.</p></small>
+					</section>
+					<section>
+						<h2> Lexing with node.js events</h2>
+						<ul>
+							<li class ="fragment">Lexers apply rules when input matches a pattern</li>
+							<li class ="fragment">Basically a state machine that "reacts" to "events"</li>
+						</ul>
+					</section>
+
+				</section>
+				<section>
+					<h2> Contributing to C.js</h2>
 				</section>
 
 			</div>
