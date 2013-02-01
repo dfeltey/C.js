@@ -84,27 +84,27 @@
 				<section>
 					<section>
 						<h2> Consider some code</h2>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int x;
 x = 5;
 						</code></pre>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int *x;
 *x = 5;
 						</code></pre>
 					</section>
 					<section>
 						<h2> What about this?</h2>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int x = 5;
 						</code></pre>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int *x = 5;
 						</code></pre>
 					</section>
 					<section>
 						<h2> And this</h2>
-						<pre><code class="C">
+						<pre><code class="language-C">
 char hello[6] = "hello";
 hello[6] = "bye";
 						</code></pre>
@@ -114,31 +114,31 @@ hello[6] = "bye";
 					<section>
 						<h3> Parsing Pointers in Devious Declarations</h3>
 						<p> What is the type of 't' in the following declaration?</p>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int *t;
 						</code></pre>
 					</section>
 					<section>
 						<h3> What about this one?</h3>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int *t[5];
 						</code></pre>
 					</section>
 					<section>
 						<h3> And this one?</h3>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int (*t)[5];
 						</code></pre>
 					</section>
 					<section>
 						<h3> Or this one?</h3>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int (*t)();
 						</code></pre>
 					</section>
 					<section>
 						<h3> Here's a harder one</h3>
-						<pre><code class="C">
+						<pre><code class="language-C">
 int (*(*vtable)[])(); 
 						</code></pre>
 						<p>From the <a href="http://www.antlr.org/wiki/display/CS652/How+To+Read+C+Declarations">ANTLR</a> wiki.</p>
@@ -205,8 +205,84 @@ int (*(*vtable)[])();
 						<ul>
 							<li class ="fragment">Lexers apply rules when input matches a pattern</li>
 							<li class ="fragment">Basically a state machine that "reacts" to "events"</li>
+							<li class="fragment">Can we use the node.js event model to implement this?</li>
 						</ul>
 					</section>
+					<section>
+						<h2>Event based Lexing</h2>
+						<ul>
+							<li class ="fragment">Lexers apply rules when input matches a pattern</li>
+							<li class ="fragment">Basically a state machine that "reacts" to "events"</li>
+							<li class="fragment">We should be able to model this in node.js</li>
+						</ul>
+					</section>
+					<section>
+						<h2>Implementation Ideas</h2>
+						<p class="fragment">Represent input as a stream of characters</p>
+						<p class="fragment">For each character in the input emit an event that represents that character</p>
+						<pre class="fragment"><code class="language-javascript">
+for (var c in input) {
+	lexer.emit(c);
+}
+							</code></pre>
+					</section>
+					<section>
+						<h2>Handling these Events</h2>
+						<p>How do we handle the events?</p>
+						<pre class="fragment"><code class="language-javascript">
+lexer.on('\n',function() {
+	lexer.line += 1;
+	// other things that should occur when reading a newline.
+});
+							</code></pre>
+							<p class="fragment">What's wrong with this method?</p>
+							<p class="fragment">How many handlers do we need?</p>
+					</section>
+					<section>
+						<h2>A better method</h2>
+						<p class="fragment">As far as I know there is no way to set a default handler</p>
+						<p class="fragment">So we need a handler for every possible character in the input</p>
+						<p class="fragment">We can do better, by emitting a 'char' event</p>
+						<pre class="fragment"><code class="language-javascript">
+for (var c in input) {
+	lexer.emit('char',c);
+}
+						</code></pre>
+						<pre class="fragment"><code class="language-javascript">
+lexer.on('char',functionn(c) {
+	// deal with the character emitted here
+});
+						</code></pre>
+					</section>
+					<section>
+						<h2>Emitting Events</h2>
+						<p class="fragment">What happens when we emit an event? What is its return value?</p>
+						<pre class="fragment"><code class="language-javascript">
+var x = lexer.emit('char','c');
+						</code></pre>
+						<p class="fragment">If lexer has a handler for 'char' then x is true, otherwise false</p>
+					</section>
+					<section>
+					<pre><code class="language-javascript">
+for (var c in input) {
+	if (!lexer.emit(c)) {
+		lexer.emit('char',c);
+	}
+	else {
+	// handle the else case here, or in its own handler
+	}
+}
+						</code></pre>
+					</section>
+					<section>
+						<h2>Parsers and beyond</h2>
+						<ul>
+							<li class="fragment">Hopefully this convinces you we can build lexers with events</li>
+							<li class="fragment">Can similar ideas be applied to parsers?</li>
+							<li class="fragment">I want a solid framework to build languages in JavaScript</li>
+						</ul>
+					</section>
+
 
 				</section>
 				<section>
